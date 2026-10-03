@@ -1,0 +1,44 @@
+# Python virtual environment
+venv/
+env/
+.venv/
+
+# Python cache/bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# OS-specific junk
+.DS_Store
+Thumbs.db
+
+# IDE/editor settings
+.vscode/
+.idea/
+*.swp
+
+# Simulator outputs (large, regenerable — don't commit raw results)
+results/baseline/*.pckl
+results/extension/*.pckl
+results/**/logs/
+experiments/traces/*.pckl
+
+# Keep folder structure even though contents are ignored
+!results/baseline/.gitkeep
+!results/extension/.gitkeep
+!experiments/traces/.gitkeep
+
+# Report build artifacts (if using LaTeX)
+*.aux
+*.log
+*.synctex.gz
+*.out
+*.toc
+
+# Environment/secret files
+.env
+*.pem
