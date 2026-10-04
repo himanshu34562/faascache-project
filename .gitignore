@@ -22,10 +22,11 @@ Thumbs.db
 *.swp
 
 # Simulator outputs (large, regenerable — don't commit raw results)
-results/baseline/*.pckl
-results/extension/*.pckl
+results/baseline/**/*.pckl
+results/extension/**/*.pckl
 results/**/logs/
-experiments/traces/*.pckl
+results/**/figs/*.pdf
+experiments/traces/**/*.pckl
 
 # Keep folder structure even though contents are ignored
 !results/baseline/.gitkeep
