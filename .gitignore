@@ -42,4 +42,4 @@ experiments/traces/**/*.pckl
 
 # Environment/secret files
 .env
-*.pem
+*.pemazure-raw-data/
