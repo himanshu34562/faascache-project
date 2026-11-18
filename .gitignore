@@ -42,4 +42,7 @@ experiments/traces/**/*.pckl
 
 # Environment/secret files
 .env
-*.pemazure-raw-data/
+*.pem
+
+# Raw Azure Functions 2019 dataset (large, download locally)
+azure-raw-data/
