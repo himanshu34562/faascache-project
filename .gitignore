@@ -28,6 +28,7 @@ results/**/logs/
 results/**/figs/*.pdf
 results/**/figs/*.png
 results/**/figs/*.csv
+results/**/figs/*.txt
 results/**/sweep.log
 experiments/traces/**/*.pckl
 

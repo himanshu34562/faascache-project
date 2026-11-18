@@ -23,11 +23,14 @@ faascache-project/
 ├── experiments/
 │   ├── gen_synthetic_trace.py # Generates a small synthetic FaaS workload trace — use this for fast pipeline sanity-checks, NOT for final results
 │   ├── plot_baseline.py        # Report figures (cold-start %, cold-start overhead, dropped requests) from a sweep's raw results
-│   ├── policies/               # Notes/helpers for the new keep-alive policy (the policy itself lives in LambdaScheduler.py)
+│   ├── test_gd_variants.py     # Sanity tests for the extension policies (GD-W / GD-D / GD-H)
+│   ├── screen_summary.py       # Ranks extension variants by overhead relative to GD
+│   ├── seed_summary.py         # Robustness across trace seeds: figures + table vs GD
+│   ├── policies/               # Placeholder (the extension policies live in LambdaScheduler.py)
 │   └── traces/                 # Trace .pckl files live here (gitignored — regenerate locally; see "How to get trace data" below)
 ├── results/
 │   ├── baseline/full_day/       # Reproduced GD/TTL/LRU/etc. results on the full-day 392-a trace — raw output + analyzed/ + figs/
-│   └── extension/               # Results from the new policy, same structure as baseline/
+│   └── extension/               # screen/ (variant screening), seeds/ (3-seed sweep), figs/ (extension figures)
 ├── notebooks/                  # Scratch analysis / exploratory plotting (Jupyter)
 ├── report/                      # Final report drafts, polished figures, slides
 ├── requirements.txt             # Exact Python package versions
@@ -93,7 +96,11 @@ Full verified commands, gotchas and patches are in **`WORKFLOW.md`**. Read that 
 2. **Sweep**: `many_run.py --char a --memmin 1000 --memmax 17000 --memstep 1000` (7 policies × 16 memory sizes, ~25 min on 6 cores)
 3. **Figures**: `experiments/plot_baseline.py` (cold-start %, cold-start overhead, dropped requests, each with a CSV)
 
-**Key result**: GD's cold-start overhead is ~3× lower than TTL's at 8 GB, matching the paper. Details in `PLAN.md`.
+**Key results**:
+- GD's cold-start overhead is ~3× lower than TTL's at 8 GB, matching the paper (holds on 3 trace seeds).
+- The extension GD-W (`Clock + Freq × Cost² / Size`) cuts overhead a further ~9–17% vs GD, on every seed at every memory size ≥ 4 GB.
+
+Details in `PLAN.md`; extension commands in `WORKFLOW.md`.
 
 ## How to get real trace data
 The paper uses the [Azure Functions 2019 trace dataset](https://github.com/Azure/AzurePublicDataset/blob/master/AzureFunctionsDataset2019.md). This is the data needed for results comparable to the paper; the synthetic trace is only for pipeline sanity checks. Processing takes roughly an hour for stage 1 and under a minute for stage 2 (see `WORKFLOW.md`).

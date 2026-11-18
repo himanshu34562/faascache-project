@@ -107,6 +107,52 @@ The upstream plot scripts still work if needed (`plotting/plot_cold_across_mem.p
 
 ---
 
+## Running the extension (GD-W / GD-D / GD-H)
+
+Extension policies are selected by name. The parameters are encoded in the name, so result files keep the `{policy}-{n}-{mem}-{char}.pckl` format (no `-` allowed inside a policy name):
+
+| Name | Priority |
+|---|---|
+| `GDW_a<a>_b<b>_c<c>` | `Clock + Freq^a × Cost^b / Size^c` (`GDW_a1_b1_c1` = GD, `GDW_a1_b1_c0` = FREQ) |
+| `GDD_t<min>` | GD with each container's access count decayed with time constant τ (minutes) |
+| `GDH` / `GDH_t<min>` | GD with a per-function count that survives eviction (optionally decayed) |
+
+**1. Sanity tests** (from the repo root, ~1 min on the 20-function trace). Run after any change to the policy code:
+```bash
+python experiments/test_gd_variants.py
+```
+Checks that GD-W(1,1,1) and GD-D(τ→∞) reproduce GD exactly, that GD-H's count survives evictions, and that the variants actually change behaviour.
+
+**2. Screen candidates** at a few memory sizes (from `sim-upstream/code/split/`, ~1 min per run):
+```bash
+R=../../../results/extension/screen
+python many_run.py --tracedir ../../../experiments/traces/representative --numfuncs 392 --char a \
+  --memmin 4000 --memmax 12001 --memstep 4000 --workers 6 --delete-logs \
+  --policies GDW_a1_b2_c1 GDW_a0.5_b1_c1 GDD_t120 GDH --savedir $R --logdir $R/logs
+cd ../../.. && python experiments/screen_summary.py results/extension/screen results/baseline/full_day
+```
+`screen_summary.py` ranks variants by overhead as % of GD (GD's numbers come from the baseline directory).
+
+**3. Confirm across trace seeds**: generate more seeds, sweep the winners next to the baselines, and summarise:
+```bash
+python sim-upstream/code/split/gen/gen_representative_trace.py --sizes 392 --runs b c     # repo root, ~25s each
+# from sim-upstream/code/split/, once per seed (a, b, c):
+python many_run.py --tracedir ../../../experiments/traces/representative --numfuncs 392 --char b \
+  --memmin 2000 --memmax 16001 --memstep 2000 --workers 6 --delete-logs \
+  --policies GD TTL LRU FREQ GDW_a1_b2_c1 GDH GDD_t120 \
+  --savedir ../../../results/extension/seeds --logdir ../../../results/extension/seeds/logs
+# back at repo root:
+python experiments/seed_summary.py --seeds a b c --outdir results/extension/figs
+```
+- Seed `b` has 1.09M invocations (~2.5 min/run). The 3-seed sweep took ~70 min on 6 workers.
+- `seed_summary.py` normalises by GD *per seed* (so workload differences cancel) and reports mean [min–max] and how many seeds beat GD. It writes `ext_vs_gd-392`, `baseline_vs_gd-392` and `seeds_vs_gd-392.csv`.
+- Existing results are reused automatically (`many_run.py` skips files that exist), so seed `a`'s baseline and screening results can be symlinked into `results/extension/seeds/` instead of rerun.
+
+### Gotcha: always pass `--delete-logs` on big sweeps
+Each run writes three per-invocation CSV logs (~60MB/run on the full-day trace). ~200 runs filled the 39GB disk and killed a sweep mid-way. Everything the analysis needs is in the result `.pckl`; the logs are only used by upstream's `compute_mem_usage.py`. Results are written atomically, so a run killed mid-save never leaves a truncated result that later sweeps would skip.
+
+---
+
 ## Patches on the `sim-upstream` submodule (`patches` branch)
 
 | File | Change |
@@ -114,7 +160,8 @@ The upstream plot scripts still work if needed (`plotting/plot_cold_across_mem.p
 | `plotting/compute_mem_usage.py` | pandas 2+: `error_bad_lines` → `on_bad_lines='skip'`; `df.append` → `pd.concat`; resample `"S"`/`"1Min"` → `"s"`/`"1min"` with `numeric_only=True` |
 | `gen/trace_split_funcs.py` | repo-relative paths; sum only per-minute columns; resumable + atomic writes; `SPLIT_MAX_INVOCATIONS`, `SPLIT_WORKERS` |
 | `gen/gen_representative_trace.py` | repo-relative paths; pandas 2+ sum fix; seeded sampling; footprint filter; `--sizes/--runs/--two-hour/--max-func-mb` |
-| `many_run.py` | `--char`, `--memmin`, `--memmax`, `--workers` |
+| `many_run.py` | `--char`, `--memmin`, `--memmax`, `--workers`, `--policies`, `--delete-logs`; atomic result writes |
+| `LambdaScheduler.py`, `Container.py` | extension policies GD-W / GD-D / GD-H (`parse_gd_variant`, `calc_priority`, `record_access`) |
 | `plotting/plot_{cold,run}_across_mem.py` | `--char`, `--memmin`, `--memmax` |
 
 Similar `AttributeError`/`TypeError` elsewhere mentioning `.append(`, `error_bad_lines`, or resample frequency strings have the same root cause (2021 code vs. modern pandas), and the same fix pattern applies.
