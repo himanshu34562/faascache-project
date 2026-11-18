@@ -66,10 +66,15 @@ The FaaSCache paper shows that deciding which function containers to keep warm i
 - **FREQ** (= GD-W c=0): 106–124% of GD at every size. Re-weighting a term helps; removing one hurts.
 - **Reproduction across seeds:** TTL ≈ 3× GD's overhead at 8 GB on all 3 seeds, up to ~9× at 16 GB. LRU tracks TTL to 10 GB, then partly recovers (2× at 16 GB). Only exception: at 4 GB on seed `b`, TTL/LRU are ~6% better than GD.
 
-**To-do for the discussion:** check the GD-W mechanism. Does it accept a few extra *cheap* cold starts to avoid *expensive* ones? Compare per-function miss counts against cost, using data already in the result pickles.
+**Why GD-W works** (`experiments/gdw_mechanism.py`, figure `gdw_mechanism-392`; functions split into quartiles by cold-start cost, 3 seeds):
+- **The most expensive quartile (Q4) carries 80–90% of GD's total cold-start overhead.** Q1, the cheapest, carries < 2%.
+- GD-W **cuts Q4's cold starts** by 2% / 7.5% / 20% at 4 / 8 / 14 GB, and **Q4's overhead by 3% / 16% / 25%**, on every seed.
+- It pays with **more cold starts on cheap functions** (Q1–Q3: +6% to +26%), so **total cold starts go *up*** (+7% / +12% / +19%).
+- Net: **overhead falls 2% / 11% / 17%**, because the cold starts it saves are the expensive ones.
+- **Interpretation:** squaring the cost term makes GD protect expensive-to-start functions much more strongly. GD-W trades cold-start *count* for cold-start *time*. That's the right trade when the goal is total latency (the paper's metric and ours). It's the wrong one if the goal is the cold-start *rate* or cheap functions' tail latency, so it's a **policy knob, not a free win**. This belongs in the report's Discussion.
 
 ### Day 3 — Write-up
-- [ ] GD-W mechanism analysis (above)
+- [x] GD-W mechanism analysis (above)
 - [ ] Report: Motivation → Background (caching analogy, GD formula) → Reproduction (setup, filter, metric note) → Extension → Results → Discussion / Limitations
 - [ ] Slides + demo script (one simulation run + figure generation, < 2 min)
 

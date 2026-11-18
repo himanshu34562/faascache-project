@@ -148,6 +148,12 @@ python experiments/seed_summary.py --seeds a b c --outdir results/extension/figs
 - `seed_summary.py` normalises by GD *per seed* (so workload differences cancel) and reports mean [min–max] and how many seeds beat GD. It writes `ext_vs_gd-392`, `baseline_vs_gd-392` and `seeds_vs_gd-392.csv`.
 - Existing results are reused automatically (`many_run.py` skips files that exist), so seed `a`'s baseline and screening results can be symlinked into `results/extension/seeds/` instead of rerun.
 
+**4. Mechanism**: why a variant beats GD, broken down by cold-start cost quartile (from the repo root, seconds):
+```bash
+python experiments/gdw_mechanism.py --resdir results/extension/seeds --outdir results/extension/figs
+```
+Writes `gdw_mechanism-392.{pdf,png,csv}`: change in cold-start count and overhead per quartile, plus each quartile's share of GD's overhead. `--variant` selects another policy.
+
 ### Gotcha: always pass `--delete-logs` on big sweeps
 Each run writes three per-invocation CSV logs (~60MB/run on the full-day trace). ~200 runs filled the 39GB disk and killed a sweep mid-way. Everything the analysis needs is in the result `.pckl`; the logs are only used by upstream's `compute_mem_usage.py`. Results are written atomically, so a run killed mid-save never leaves a truncated result that later sweeps would skip.
 

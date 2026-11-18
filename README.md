@@ -26,6 +26,7 @@ faascache-project/
 │   ├── test_gd_variants.py     # Sanity tests for the extension policies (GD-W / GD-D / GD-H)
 │   ├── screen_summary.py       # Ranks extension variants by overhead relative to GD
 │   ├── seed_summary.py         # Robustness across trace seeds: figures + table vs GD
+│   ├── gdw_mechanism.py        # Why GD-W wins: cold starts / overhead by cold-start cost quartile
 │   ├── policies/               # Placeholder (the extension policies live in LambdaScheduler.py)
 │   └── traces/                 # Trace .pckl files live here (gitignored — regenerate locally; see "How to get trace data" below)
 ├── results/
@@ -98,7 +99,7 @@ Full verified commands, gotchas and patches are in **`WORKFLOW.md`**. Read that 
 
 **Key results**:
 - GD's cold-start overhead is ~3× lower than TTL's at 8 GB, matching the paper (holds on 3 trace seeds).
-- The extension GD-W (`Clock + Freq × Cost² / Size`) cuts overhead a further ~9–17% vs GD, on every seed at every memory size ≥ 4 GB.
+- The extension GD-W (`Clock + Freq × Cost² / Size`) cuts overhead a further ~9–17% vs GD, on every seed at every memory size ≥ 4 GB. It trades a few more cheap cold starts for fewer expensive ones.
 
 Details in `PLAN.md`; extension commands in `WORKFLOW.md`.
 
