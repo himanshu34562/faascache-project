@@ -43,6 +43,10 @@ experiments/traces/**/*.pckl
 *.synctex.gz
 *.out
 *.toc
+*.fdb_latexmk
+*.fls
+*.bbl
+*.blg
 
 # Environment/secret files
 .env

@@ -33,7 +33,7 @@ faascache-project/
 │   ├── baseline/full_day/       # Reproduced GD/TTL/LRU/etc. results on the full-day 392-a trace — raw output + analyzed/ + figs/
 │   └── extension/               # screen/ (variant screening), seeds/ (3-seed sweep), figs/ (extension figures)
 ├── notebooks/                  # Scratch analysis / exploratory plotting (Jupyter)
-├── report/                      # Final report drafts, polished figures, slides
+├── report/                      # LaTeX report: main.tex, refs.bib, figures/, compiled main.pdf (Overleaf-ready)
 ├── requirements.txt             # Exact Python package versions
 ├── .gitignore
 ├── README.md                    # you are here — what the project is, folder guide, how to reproduce
