@@ -1,3 +1,4 @@
 [submodule "sim-upstream"]
 	path = sim-upstream
 	url = https://github.com/himanshu34562/faascache-sim.git
+	branch = patches

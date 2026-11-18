@@ -1,91 +1,87 @@
-# Plan — 4 Weeks, 4 People
+# Plan
 
-**Status as of kickoff**: environment + submodule + pandas patches verified working. Pipeline runs end-to-end on synthetic data. Real Azure trace not yet pulled. See `README.md` for what the project is and folder layout; `WORKFLOW.md` for exact commands.
+**Status (2026-11-18)**: baseline reproduced. GD beats TTL by ~3× on cold-start overhead at 8 GB on a real Azure trace. Next: the extension. Deadline: ~2026-11-21.
 
----
-
-## The one-paragraph version of what we're doing
-
-The FaaSCache paper shows that treating "which function containers to keep warm" as a caching problem (their Greedy-Dual policy, "GD") beats the naive fixed-timeout approach (TTL) that real platforms use — by 3× on cold-start overhead. We're going to (1) **reproduce** that specific result ourselves, using their own open-sourced simulator, on both a quick synthetic trace and the real Azure Functions trace they used, and (2) **extend** their work with one concrete new idea (see "Our Extension" below) — implement it, test it the same way they tested GD, and report whether it helps, hurts, or doesn't matter.
-
-## Why this is a good project (for our own reference / for the report's motivation section)
-- Cold-starts are a real, unsolved-enough problem in production serverless systems — not a toy issue
-- The paper's own code and data are public, so we're not reproducing from scratch — de-risks the "nothing works" failure mode
-- The core algorithm (Greedy-Dual priority formula) is simple enough to meaningfully extend in a few weeks, but has enough real depth (frequency, cost, size, recency all interacting) that an extension is a genuine design decision, not just parameter-tuning
+See `README.md` for what the project is and the folder layout, and `WORKFLOW.md` for exact commands.
 
 ---
 
-## Roles (fixed for the whole project — ownership, not silos)
+## What this project does
 
-| Role | Person | Owns |
-|---|---|---|
-| **Simulator & Infra Lead** | _TBD_ | Environment, submodule/patches, trace generation (synthetic + real), keeping the pipeline runnable for everyone |
-| **Algorithm Lead** | _TBD_ | Designing + implementing the new keep-alive policy (the actual research contribution) |
-| **Experiments & Eval Lead** | _TBD_ | Experiment matrix design, running comparisons, producing plots |
-| **Writing & Integration Lead** | _TBD_ | Report skeleton, keeping figures/results organized, slides, demo script |
+The FaaSCache paper shows that deciding which function containers to keep warm is a caching problem. Its Greedy-Dual policy (GD) beats the fixed-timeout approach (TTL) that real platforms use by ~3× on cold-start overhead. This project (1) **reproduces** that result with the paper's own simulator on the real Azure Functions trace, and (2) **extends** GD with one concrete new idea, evaluated the same way.
 
-Everyone reads the full paper. These are ownership lanes for debugging/decisions, not strict silos — pair up when stuck (Infra+Algorithm on simulator internals, Eval+Writing on analysis/report).
+## Why this is a good project (report motivation)
+- Cold starts are a real, still-open problem in production serverless systems
+- The paper's code and data are public, so the reproduction rests on the authors' own artifacts
+- GD's priority formula is simple enough to extend in days, but its terms (frequency, cost, size, recency) interact enough that the extension is a real design question rather than parameter tuning
 
 ---
 
-## Week 1 — Reproduce
+## Scope decisions (compute-limited: 8-core / 7 GB VM)
 
-**Goal**: one working, *meaningful* plot (GD visibly beating TTL, roughly matching the paper's reported magnitude) by end of week.
-
-- [x] Repo + submodule + patches set up and verified (done pre-kickoff)
-- [x] Pipeline confirmed working end-to-end on a quick synthetic trace (done pre-kickoff — though first attempt's memory sweep didn't match trace scale, see `WORKFLOW.md` gotcha)
-- [ ] Pull real Azure Functions trace data (Infra Lead) — this is the actual Week 1 deliverable's data source, not the synthetic trace
-- [ ] Reproduce paper Fig. 5a / Fig. 6a equivalent: representative trace, GD vs TTL vs LRU vs others, across a properly-scaled memory sweep
-- [ ] Sanity-check: does GD show meaningfully lower cold-start % / execution-time-increase than TTL, matching the paper's ~3× claim (order of magnitude, not exact numbers — our hardware/trace sampling will differ)?
-- [ ] Everyone: read paper Sections 3-4 (keep-alive tradeoffs, Greedy-Dual policy) deeply enough to explain the `Priority = Clock + (Freq × Cost) / Size` formula to a stranger
-
-**What "done" looks like**: a PDF plot in `results/baseline/figs/` showing GD's curve clearly below TTL's, committed nowhere in git (per `.gitignore`) but screenshotted/shared in team chat and referenced in the report draft.
-
-## Week 2 — Validate + Lock Extension
-
-- [ ] Run RARE and RANDOM trace variants too (not just REPRESENTATIVE), confirm LRU catches up to/beats GD on more homogeneous workloads — this is the paper's own reported nuance, good material for our report's discussion
-- [ ] As a group, pick ONE extension (write it down, one paragraph, in "Our Extension" below) — this is a hard deadline, don't let week 3 start without this locked
-
-### Extension options (pick one)
-1. **Weighted/tunable priority variant** (recommended — most tractable): modify `Priority = Clock + (Freq × Cost) / Size` with tunable weights (e.g. `Clock + w1*(Freq×Cost)/Size^w2`), sweep weights to see if a variant beats plain GD on specific trace types
-2. **Generalization test**: run the existing GD policy against a new/different workload trace (newer Azure release, or custom-skewed synthetic) — no new algorithm, tests robustness instead; lower implementation risk, slightly less "novel"
-3. **Provisioning policy variant** (stretch, higher difficulty): experiment with the dynamic vertical-scaling controller's deadband/control approach (paper Section 5.2) instead of the keep-alive policy itself
-
-### Our Extension
-> _(fill in once decided — one paragraph: what we're changing, why, and what result would count as success. This paragraph becomes the seed of the report's "Our Extension" section.)_
-
-## Week 3 — Build + Run
-
-- [ ] Implement the extension in the simulator (new policy class alongside existing GD/LND/FREQ in `LambdaScheduler.py`, or new trace in `experiments/traces/`, or new controller logic)
-- [ ] Unit-test the new policy on a tiny trace before running the full sweep (catch bugs cheap, not after a 20-minute run)
-- [ ] Run the full experiment matrix: new approach vs. GD/TTL/LRU, across trace types (REPRESENTATIVE/RARE/RANDOM) and a properly-scaled memory sweep
-- [ ] Generate comparison plots, save to `results/extension/figs/`
-
-## Week 4 — Polish + Present
-
-- [ ] Finalize figures (consistent labels/legends/captions, exported at report quality)
-- [ ] Write report: Motivation → Background (caching analogy, GDSF formula) → Our Extension → Experimental Setup → Results → Discussion/Limitations
-- [ ] Rehearse demo: live simulator run + plot generation (fast, deterministic, low-risk) is the safest demo format — rehearse it to run in under 2 minutes
+- **Trace**: the paper's representative sampling method (392 functions, equal draws from each invocation-frequency quartile, seeded) over the **full 24 h** of Azure day 1. That's 458k invocations, ~1 min per simulation.
+- **Excluded functions**: any function whose own cold-start burst (peak rate × cold time × memory) exceeds 2 GB, 1,982 of 36,257 in all. Without this, one sampled function needed ~80 GB of non-evictable running containers and every policy looked identical. Must be stated in the report's setup section; details in `WORKFLOW.md`.
+- **Memory sweep**: 1–16 GB in 1 GB steps (the trace's worst-case footprint is ~14 GB).
+- **Metric**: cold-start % and **cold-start overhead** (Σ misses × (run_time − warm_time)), the latency the simulator actually charges. Upstream's `% increase in execution time` plot is not used: its analysis reads the two timing fields the opposite way from the simulator (see `WORKFLOW.md`).
+- **Cut**: whole-dataset simulation (infeasible; the paper samples too), RARE/RANDOM trace variants, OpenWhisk real-system track. Each becomes one line in Limitations / Future Work.
 
 ---
 
-## Decision Rules (avoid thrash — read this when stuck, don't just push through blindly)
+## Status
 
-- If the chosen extension isn't working by **mid-week 3**, fall back to a simpler version (e.g. drop a predictive/ML idea for a simpler weighted-priority tweak) rather than risk having nothing for week 4
-- Trace generation: default to a properly-scaled approach (real Azure data, or a synthetic trace sized to match your memory sweep) — don't repeat the mismatched memory-sweep/trace-size mistake from our first pipeline test
-- Real-system OpenWhisk track (paper Appendix A.3.2 — an actual deployed FaaS platform, not just the simulator) is an explicit "only if everything else is done early" stretch goal — do not let it eat into core timeline; the simulator alone is a complete, legitimate project
-- If real Azure data processing (Week 1) is taking too long, don't block the whole team — synthetic trace work (extension implementation, policy design) can proceed in parallel while data processing runs in the background
+### Day 1 — Reproduce ✅
+- [x] Environment, submodule, pandas 2+ patches
+- [x] Raw Azure 2019 data → per-function split (36,257 functions) → representative `392-a` trace
+- [x] Trace footprint filter (fixes the "all policies identical" failure)
+- [x] Baseline sweep: 7 policies × 16 memory sizes on the full-day trace
+- [x] Figures: `cold_pct_mem`, `overhead_mem`, `dropped_mem` in `results/baseline/full_day/figs/`
 
-## Deliverables Checklist
+**Baseline findings** (become the report's Results section):
+- GD has the lowest cold-start overhead at every memory size ≥ 3 GB: **2.9× lower than TTL at 8 GB**, 6.7× at 10 GB. That's the paper's headline result.
+- Ordering GD < FREQ < LND/SIZE < LRU < TTL < HIST on overhead.
+- **FREQ (GD without the size term) is nearly as good as GD**: cost × frequency does most of the work on this trace.
+- **SIZE has the fewest cold starts but much higher overhead than GD.** Fewer cold starts ≠ less cold-start time, which is why GD weights by cost.
+- HIST is worse than TTL (125–170% of TTL's overhead). Its histogram prewarming doesn't suit this trace.
+- Below ~4 GB every policy drops 5–45% of requests and they converge.
 
-- [ ] Reproduced baseline plots (GD/TTL/LRU across ≥2 trace types, properly scaled, real Azure data)
+### Day 2 — Extension
+- [ ] Implement **GD-W** and **GD-D** (below) in `calc_priority` in `LambdaScheduler.py`
+- [ ] Sanity-test each on a tiny trace before any sweep
+- [ ] Screen variants at 4 / 8 / 12 GB (~1 min/run)
+- [ ] Full 1–16 GB sweep of the best 1–2 variants next to GD/TTL/LRU/FREQ
+- [ ] Figures into `results/extension/figs/` via `experiments/plot_baseline.py`
+
+### Day 3 — Write-up
+- [ ] Report: Motivation → Background (caching analogy, GD formula) → Reproduction (setup, filter, metric note) → Extension → Results → Discussion / Limitations
+- [ ] Slides + demo script (one simulation run + figure generation, < 2 min)
+
+---
+
+## The extension
+
+GD's priority is `Clock + Freq × Cost / Size` (`LambdaScheduler.calc_priority`). The paper's own FREQ and SIZE baselines are GD with one term switched off, so they are fixed points of one generalised formula.
+
+**GD-W (weighted exponents)**
+`Priority = Clock + Freq^a × Cost^b / Size^c`
+GD = (1,1,1), FREQ = (1,1,0), SIZE = (1,0,1). Sweep a small grid (e.g. a ∈ {0.5, 1, 2}, c ∈ {0, 0.5, 1}). The baseline already shows that size contributes little (FREQ ≈ GD), so this asks whether the paper's equal weighting is actually the best one.
+
+**GD-D (frequency decay)**
+GD's `freq` is a running count that never decays while a container stays warm, so a function that was hot hours ago keeps a high priority. Replace it with an exponentially decayed count, `freq ← freq·e^(−Δt/τ) + 1`, and sweep τ (e.g. 5 / 30 / 120 min). The full-day trace has strong time-of-day shifts, which is exactly where stale frequency should hurt.
+
+**Success criterion**: a variant cuts cold-start overhead vs. GD by a clear margin (≥10% relative) over part of the memory range. A well-explained negative result ("GD's weighting is already near-optimal because…") is also a valid outcome.
+
+**Fallback**: if GD-D shows nothing by mid-Day 2, ship GD-W alone. It's a complete extension by itself.
+
+---
+
+## Decision rules
+- Iterate on 3 memory sizes, never the full grid, until a variant is worth a full sweep
+- If policies ever look identical again, check dropped requests (`capacity_misses`) before suspecting policy code
+- Anything that would take > 1 hour of compute needs a reason to exist before the deadline
+
+## Deliverables
+- [x] Reproduced baseline figures (GD/TTL/LRU/LND/HIST/FREQ/SIZE, real Azure trace)
 - [ ] Extension implemented and tested
-- [ ] Full experiment sweep run and plotted
-- [ ] Report draft (all sections)
+- [ ] Extension sweep run and plotted
+- [ ] Report (all sections)
 - [ ] Slides / demo script
-- [ ] Final read-through + rehearsal
-
-## Weekly Rhythm
-- **Monday** (15 min): confirm this week's tasks from this doc, surface blockers from last week
-- **Wed/Thu** (async, team chat): quick progress check-in — "did / doing / blocked on"
-- **Friday** (30 min): show what you have, even rough — decide as a group if on track for next week's milestone, update this file's checkboxes

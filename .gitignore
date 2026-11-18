@@ -26,6 +26,9 @@ results/baseline/**/*.pckl
 results/extension/**/*.pckl
 results/**/logs/
 results/**/figs/*.pdf
+results/**/figs/*.png
+results/**/figs/*.csv
+results/**/sweep.log
 experiments/traces/**/*.pckl
 
 # Keep folder structure even though contents are ignored
